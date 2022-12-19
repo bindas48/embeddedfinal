@@ -1,0 +1,147 @@
+//work in progess
+
+#include <msp430.h>
+
+    unsigned char RXData;
+    unsigned char RXCompare;
+    void I2CInit();
+    int main(void)
+    {
+      I2CInit();
+      WDTCTL = WDTPW + WDTHOLD;                 // Stop WDT
+      P1SEL0 |= BIT2 + BIT3;                     // Assign I2C pins to USCI_B0
+      P1SEL1|= BIT2 + BIT3;                     // Assign I2C pins to USCI_B0
+      UCB0CTL1 |= UCSWRST;                      // Enable SW reset
+      UCB0CTL0 = UCMST + UCMODE_3 + UCSYNC;     // I2C Master, synchronous mode
+      UCB0CTL1 = UCSSEL_2 + UCSWRST;            // Use SMCLK, keep SW reset
+      UCB0BR0 = 12;                             // fSCL = SMCLK/12 = ~100kHz
+      UCB0BR1 = 0;
+      UCB0I2CSA = 0x069;                        // Slave Address is 048h
+      UCB0CTL1 &= ~UCSWRST;                     // Clear SW reset, resume operation
+     // IE2 |= UCB0RXIE;                          // Enable RX interrupt
+      RXCompare = 0;                            // Used to check incoming data
+      while (1)
+      {
+        while (UCB0CTL1 & UCTXSTP);             // Ensure stop condition got sent
+        UCB0CTL1 |= UCTXSTT;                    // I2C start condition
+        while (UCB0CTL1 & UCTXSTT);             // Start condition sent?
+        RXData = UCB0RXBUF;
+        UCB0CTL1 |= UCTXSTP;                    // I2C stop condition
+        __bis_SR_register(CPUOFF + GIE);        // Enter LPM0 w/ interrupts
+      }
+    }
+
+    // USCI_B0 Data ISR
+    #pragma vector = USCIAB0TX_VECTOR
+    __interrupt void USCIAB0TX_ISR(void)
+    {
+      RXData = UCB0RXBUF;                       // Get RX data
+      __bic_SR_register_on_exit(CPUOFF);        // Exit LPM0
+    }
+    void I2CInit(){
+            UCB0CTLW0 = UCSWRST;                      // Enable SW reset
+            UCB0CTLW0 |= UCMODE_3 | UCMST | UCSSEL__SMCLK | UCSYNC; // I2C master mode, SMCLK
+            UCB0BRW = 160;                            // fSCL = SMCLK(16MHz)/160 = ~100kHz
+            UCB0I2CSA = 0xD0;                         // Slave Address
+            UCB0CTLW0 &= ~UCSWRST;                    // Clear SW reset, resume operation
+
+
+    }
+
+/*#include <msp430.h>
+
+unsigned int motionReading;
+
+void main(void)
+{
+        WDTCTL = WDTPW | WDTHOLD; // Stop watchdog timer
+        _delay_cycles(5);         // Wait for ADC Ref to settle
+
+
+
+    PM5CTL0 &= ~LOCKLPM5;
+
+
+
+
+
+        while (1){   // Wait for sample to be sampled and converted
+
+                    ADCCTL0 |= ADCENC | ADCSC;     // Sampling and conversion start
+                    while (!(ADCIFG & ADCIFG0)){   // Wait for sample to be sampled and converted
+                        ConfigureAdc_ldr();
+
+
+
+
+                        motionReading = ADCMEM0;
+
+                    }
+        }
+
+
+}
+// Configure ADC Temperature
+
+
+void ConfigureAdc_ldr(){
+
+        P4SEL0 |= BIT6;     // P1SEL = 11, therefore, P1SEL0 = 1
+
+        P4SEL1 |= BIT7;     // P1SEL1 = 1
+
+        ADCCTL0 |= ADCSHT_8 | ADCON;                                  // ADC ON,temperature sample period>30us
+
+        ADCCTL1 |= ADCSHP;                                            // s/w trig, single ch/conv, MODOSC
+
+        ADCCTL2 &= ~ADCRES;                                           // clear ADCRES in ADCCTL
+
+        ADCCTL2 |= ADCRES_2;                                          // 12-bit conversion results
+
+        ADCMCTL0 |= ADCSREF_1 | ADCINCH_12;                           // ADC input ch A12
+
+        ADCIE |=ADCIE0;
+
+}
+
+/*
+ #include <msp430.h>
+
+    unsigned char RXData;
+    unsigned char RXCompare;
+
+    int main(void)
+    {
+      WDTCTL = WDTPW + WDTHOLD;                 // Stop WDT
+      P1SEL0 |= BIT2 + BIT3;                     // Assign I2C pins to USCI_B0
+      P1SEL1|= BIT2 + BIT3;                     // Assign I2C pins to USCI_B0
+      UCB0CTL1 |= UCSWRST;                      // Enable SW reset
+      UCB0CTL0 = UCMST + UCMODE_3 + UCSYNC;     // I2C Master, synchronous mode
+      UCB0CTL1 = UCSSEL_2 + UCSWRST;            // Use SMCLK, keep SW reset
+      UCB0BR0 = 12;                             // fSCL = SMCLK/12 = ~100kHz
+      UCB0BR1 = 0;
+      UCB0I2CSA = 0x06C;                        // Slave Address is 048h
+      UCB0CTL1 &= ~UCSWRST;                     // Clear SW reset, resume operation
+      //IE2 |= UCB0RXIE;                          // Enable RX interrupt
+      RXCompare = 0;                            // Used to check incoming data
+      while (1)
+      {
+
+       // while (UCB0CTL1 & UCTXSTP);             // Ensure stop condition got sent
+       // UCB0CTL1 |= UCTXSTT;                    // I2C start condition
+        //while (UCB0CTL1 & UCTXSTT);             // Start condition sent?
+       // UCB0CTL1 |= UCTXSTP;                    // I2C stop condition
+        //__bis_SR_register(CPUOFF + GIE);        // Enter LPM0 w/ interrupts
+        RXData = UCB0RXBUF;                       // Get RX data
+
+      }
+    }
+
+    // USCI_B0 Data ISR
+    //#pragma vector = USCIAB0TX_VECTOR
+   // __interrupt void USCIAB0TX_ISR(void)
+    //{
+      //RXData = UCB0RXBUF;                       // Get RX data
+      //__bic_SR_register_on_exit(CPUOFF);        // Exit LPM0
+    //}
+*/
