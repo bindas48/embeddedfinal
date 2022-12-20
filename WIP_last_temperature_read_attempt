@@ -1,0 +1,58 @@
+// WARNING. PLEASE READ: refrence code was used from the MSP430FR2355 Embedded Systems Design Textbook and this link: https://github.com/microphonon/MSP430-I2C, the code is not 100% original
+
+
+#include <msp430.h>
+
+    unsigned char RXData;
+    unsigned char RXCompare;
+    void I2CInit();
+    int main(void)
+    {
+      I2CInit();
+      WDTCTL = WDTPW | WDTHOLD;   //Stop watchdog timer
+
+         PM5CTL0 &= ~LOCKLPM5;
+         P4DIR |= BIT0 + BIT2 + BIT3 + BIT4 + BIT5;
+         P4SEL1 |= BIT6 + BIT7; //Setup I2C on UCB0
+         P4OUT = BIT6 + BIT7;//setting pullup resistor
+         P4REN = BIT6 + BIT7;
+         P4IES = BIT1;
+         P4IFG = 0;
+        
+
+
+
+
+         // Configure the eUSCI_B0 module for I2C at 100 kHz
+         UCB0CTLW0 |= UCSWRST;
+         UCB0CTLW0 |=  UCSSEL__SMCLK + UCMST + UCTR + UCSYNC + UCMODE_3; //Select SMCLK, master, transmitter, synchronous, I2C
+         UCB0BRW = 10;  //Divide SMCLK by 10 to get ~100 kHz
+         UCB0I2CSA = 0xD9; // FR2355 address
+         UCB0CTLW0 &= ~UCSWRST; // Clear reset
+      while (1)
+      {
+        while (UCB0CTL1 & UCTXSTP);             // Ensure stop condition got sent
+        UCB0CTL1 |= UCTXSTT;                    // I2C start condition
+        while (UCB0CTL1 & UCTXSTT);             // Start condition sent?
+        RXData = UCB0RXBUF;
+        UCB0CTL1 |= UCTXSTP;                    // I2C stop condition
+        __bis_SR_register(CPUOFF + GIE);        // Enter LPM0 w/ interrupts
+      }
+    }
+
+    // USCI_B0 Data ISR
+    #pragma vector = USCIAB0TX_VECTOR
+    __interrupt void USCIAB0TX_ISR(void)
+    {
+      RXData = UCB0RXBUF;                       // Get RX data
+      __bic_SR_register_on_exit(CPUOFF);        // Exit LPM0
+    }
+    void I2CInit(){
+            UCB0CTLW0 = UCSWRST;                      // Enable SW reset
+            UCB0CTLW0 |= UCMODE_3 | UCMST | UCSSEL__SMCLK | UCSYNC; // I2C master mode, SMCLK
+            UCB0BRW = 1;                            // changing frequency
+            UCB0I2CSA = 0x11;                         // Slave Address
+            UCB0CTLW0 &= ~UCSWRST;                    // Clear SW reset, resume operation
+
+
+    }
