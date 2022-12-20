@@ -1,4 +1,4 @@
-//work in progess
+// WARNING. PLEASE READ: refrence code was used from the MSP430FR2355 Embedded Systems Design Textbook and this link: https://github.com/microphonon/MSP430-I2C, the code is not 100% original
 
 #include <msp430.h>
 
